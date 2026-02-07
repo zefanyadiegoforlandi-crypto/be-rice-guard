@@ -1,0 +1,10 @@
+{
+  "users": {
+    "zefanyadiego1@gmail.com": {
+      "email": "zefanyadiego1@gmail.com",
+      "name": "johndoe",
+      "password": "$2b$12$Y9H5eL4hwaOfaTviWolWf.slQtHqDKMbNvbDulTQajCKBhKPPkYKq",
+      "created_at": "03/02/2026"
+    }
+  }
+}

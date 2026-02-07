@@ -1,0 +1,34 @@
+{
+  "zefanyadiego1@gmail.com": [
+    {
+      "id": "9a377eff-53bb-4f35-acbc-0537ce9dc0f9",
+      "disease": "Bacterial Leaf Blight",
+      "type": "disease",
+      "confidence": 0.8154,
+      "recommendations": [
+        "Cut infected leaves",
+        "Use antibiotic spray",
+        "Improve water management",
+        "Destroy infected plants",
+        "Practice crop rotation"
+      ],
+      "timestamp": "2026-02-05T23:17:34.997057",
+      "image_path": "be8ea915-a04e-4c5a-9420-d583076e415a.jpg"
+    },
+    {
+      "id": "a339ce4d-1853-4b1b-bde6-67b379246da9",
+      "disease": "Healthy",
+      "type": "healthy",
+      "confidence": 1.0,
+      "recommendations": [
+        "Continue regular monitoring",
+        "Maintain proper nutrition",
+        "Ensure good water management",
+        "Prevent pest infestation",
+        "Keep field clean"
+      ],
+      "timestamp": "2026-02-05T23:24:35.309007",
+      "image_path": "7c08f476-bb6e-4a29-9ccb-4838e9dc3f1e.jpg"
+    }
+  ]
+}

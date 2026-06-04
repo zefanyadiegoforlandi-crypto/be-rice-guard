@@ -43,6 +43,10 @@ _default_cors_origins = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:3001",
     "http://127.0.0.1:8000",
+    "https://sekarpadi.online",
+    "https://www.sekarpadi.online",
+    "https://fe-rice-guard.vercel.app/",
+
 ]
 
 CORS_ORIGINS = _parse_env_list(os.getenv("CORS_ORIGINS")) or _default_cors_origins

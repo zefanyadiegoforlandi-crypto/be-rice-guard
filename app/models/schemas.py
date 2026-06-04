@@ -19,11 +19,16 @@ class UpdateNameRequest(BaseModel):
     """Update name request"""
     name: str
 
+class ChangePasswordRequest(BaseModel):
+    """Change password request"""
+    new_password: str
+
 class UserResponse(BaseModel):
     """User response"""
     id: Optional[int] = None
     email: str
     name: str
+    role: Optional[str] = 'user'  # 'user' atau 'admin'
     created_at: Optional[datetime] = None
 
     class Config:
@@ -44,6 +49,7 @@ class DiseaseDetectionItem(BaseModel):
     confidence: float  # 0.0 - 1.0
     recommendations: Optional[str] = None
     severity: Optional[str] = None  # "Low", "Medium", "High"
+    bbox: Optional[List[float]] = None  # Bounding box [x1, y1, x2, y2]
 
     class Config:
         from_attributes = True
@@ -79,6 +85,7 @@ class DetectionResponse(BaseModel):
     image_name: Optional[str] = None
     image_filename: str
     image_path: str
+    annotated_image_path: Optional[str] = None
     disease_count: int
     diseases: List[DiseaseDetectionItem]  # BARU: array of diseases
     created_at: datetime
@@ -93,6 +100,7 @@ class DetectionCreateResponse(BaseModel):
     image_name: Optional[str] = None
     image_filename: str
     image_path: str
+    annotated_image_path: Optional[str] = None
     disease_count: int
     diseases: List[DiseaseDetectionItem]  # Multiple diseases per scan
     created_at: datetime
@@ -108,6 +116,7 @@ class DetectionHistoryItem(BaseModel):
     diseases: List[DiseaseDetectionItem]  # Show all detected diseases
     created_at: datetime
     image_path: str
+    annotated_image_path: Optional[str] = None
     image_filename: str
 
     class Config:
@@ -117,4 +126,22 @@ class DetectionHistoryResponse(BaseModel):
     """Detection history list response"""
     total: int
     items: List[DetectionHistoryItem]
+
+
+class PaginatedDetectionHistoryResponse(BaseModel):
+    """Paginated detection history response"""
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    items: List[DetectionHistoryItem]
+
+
+class PaginatedUserResponse(BaseModel):
+    """Paginated user list response"""
+    total: int
+    page: int
+    per_page: int
+    total_pages: int
+    items: List[UserResponse]
 

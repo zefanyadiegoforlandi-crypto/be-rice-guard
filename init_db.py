@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 """
-Database initialization script untuk Rice Detection Backend
-Run ini setelah MySQL database sudah dibuat
+DEPRECATED: Use run_migrations.py instead for best practice migration management
+
+This script is kept for backward compatibility only.
+For new setup, use: python run_migrations.py
 """
 
 import os
@@ -13,8 +15,13 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 def main():
     print("=" * 60)
-    print("Rice Detection Database Initialization")
+    print("⚠️  DEPRECATED: Use 'python run_migrations.py' instead")
     print("=" * 60)
+    print("\nFor best practice database migrations, use:")
+    print("  python run_migrations.py")
+    print("\nRefer to MIGRATION_GUIDE.md for details")
+    print("=" * 60)
+    return False
     
     # Check if .env exists
     env_path = Path(__file__).parent / ".env"

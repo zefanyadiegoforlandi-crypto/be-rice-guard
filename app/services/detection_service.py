@@ -1,32 +1,68 @@
 import os
 import uuid
 import time
+import cv2
+import numpy as np
 from datetime import datetime
 from typing import Dict, Tuple, List, Optional
 from PIL import Image
-import random
-from app.config import UPLOADS_DIR, COMMON_ISSUES
+from app.config import (
+    UPLOADS_DIR, YOLO_MODEL_PATH, YOLO_CONFIDENCE_THRESHOLD,
+    CLASS_CATEGORIES, CLASS_RECOMMENDATIONS, get_severity,
+)
 from app.models.database import Detection, DetectionDisease, ImageMetadata
 from app.models.schemas import DiseaseDetectionItem
 from sqlalchemy.orm import Session
 
 
+# ── Singleton YOLO model ─────────────────────────────────────────────
+_yolo_model = None
+
+
+def load_yolo_model():
+    """Load YOLO model once (singleton) agar tidak reload tiap request."""
+    global _yolo_model
+    if _yolo_model is None:
+        from ultralytics import YOLO
+        if not os.path.exists(YOLO_MODEL_PATH):
+            raise FileNotFoundError(f"Model not found: {YOLO_MODEL_PATH}")
+        _yolo_model = YOLO(YOLO_MODEL_PATH)
+        print(f"✓ YOLO model loaded from {YOLO_MODEL_PATH}")
+        print(f"  Classes: {_yolo_model.names}")
+    return _yolo_model
+
+
+def get_yolo_model():
+    """Ambil model yang sudah di-load."""
+    global _yolo_model
+    if _yolo_model is None:
+        return load_yolo_model()
+    return _yolo_model
+
+
 class DetectionService:
-    """Handle disease and pest detection operations with MySQL database"""
+    """Handle disease detection operations with YOLO model and MySQL database"""
 
     @staticmethod
-    def save_uploaded_image(file_content: bytes, filename: str, user_id: int) -> Tuple[str, str]:
+    def save_uploaded_image(file_content: bytes, filename: str, user_id: Optional[int] = None) -> Tuple[str, str, str]:
         """
-        Save uploaded image ke folder user dan return (filename, relative_path)
-        Format: uploads/user_{id}/scan_{timestamp}.ext
+        Save uploaded image ke folder user (atau guest untuk anonymous scan)
+        Format: uploads/user_{id}/scan_{timestamp}.ext (untuk user dengan ID)
+                uploads/guest/scan_{timestamp}.ext (untuk guest scan)
         """
         try:
             file_ext = os.path.splitext(filename)[1].lower() or '.jpg'
             timestamp = int(time.time())
             unique_filename = f"scan_{timestamp}{file_ext}"
 
-            # Buat folder per user
-            user_folder = os.path.join(UPLOADS_DIR, f"user_{user_id}")
+            # Buat folder per user atau guest
+            if user_id:
+                user_folder = os.path.join(UPLOADS_DIR, f"user_{user_id}")
+                relative_prefix = f"/uploads/user_{user_id}"
+            else:
+                user_folder = os.path.join(UPLOADS_DIR, "guest")
+                relative_prefix = "/uploads/guest"
+            
             os.makedirs(user_folder, exist_ok=True)
 
             file_path = os.path.join(user_folder, unique_filename)
@@ -34,105 +70,152 @@ class DetectionService:
             with open(file_path, 'wb') as f:
                 f.write(file_content)
 
-            relative_path = f"/uploads/user_{user_id}/{unique_filename}"
-            return unique_filename, relative_path
+            relative_path = f"{relative_prefix}/{unique_filename}"
+            return unique_filename, relative_path, file_path
         except Exception as e:
             print(f"Error saving image: {e}")
-            return None, None
+            return None, None, None
 
     @staticmethod
-    def detect_diseases(image_path: str) -> List[DiseaseDetectionItem]:
+    def detect_diseases(absolute_image_path: str) -> Tuple[List[DiseaseDetectionItem], Optional[str]]:
         """
-        Detect multiple diseases dari image
-        MOCK: Randomly select 1-3 diseases
-        Real implementation: gunakan AI model
+        Detect diseases dari image menggunakan YOLO model.
+        Returns:
+            - list of DiseaseDetectionItem
+            - annotated_image_relative_path (path gambar dgn bounding box) atau None
         """
         try:
-            # Mock: random select 1-3 diseases
-            num_diseases = random.choice([1, 1, 1, 2, 2, 3])  # Weighted: mostly 1-2
-            selected = random.sample(COMMON_ISSUES, min(num_diseases, len(COMMON_ISSUES)))
+            # Validate file exists
+            if not os.path.exists(absolute_image_path):
+                raise FileNotFoundError(f"Image file not found: {absolute_image_path}")
 
+            # Validate file is readable
+            if not os.access(absolute_image_path, os.R_OK):
+                raise PermissionError(f"Cannot read image file: {absolute_image_path}")
+
+            model = get_yolo_model()
+
+            # Run inference
+            results = model.predict(
+                source=absolute_image_path,
+                conf=YOLO_CONFIDENCE_THRESHOLD,
+                verbose=False,
+            )
+
+            if not results or len(results) == 0:
+                # Tidak ada deteksi → kembalikan Healthy
+                return [DiseaseDetectionItem(
+                    disease_name="Healthy",
+                    category="Healthy",
+                    confidence=1.0,
+                    recommendations="Tanaman terlihat sehat. Lanjutkan perawatan rutin | Pastikan nutrisi tanaman terpenuhi | Jaga pengelolaan air sawah yang baik",
+                    severity="None",
+                    bbox=None,
+                )], None
+
+            result = results[0]
+            boxes = result.boxes
+
+            if boxes is None or len(boxes) == 0:
+                # Tidak ada objek terdeteksi → Healthy
+                return [DiseaseDetectionItem(
+                    disease_name="Healthy",
+                    category="Healthy",
+                    confidence=1.0,
+                    recommendations="Tanaman terlihat sehat. Lanjutkan perawatan rutin | Pastikan nutrisi tanaman terpenuhi | Jaga pengelolaan air sawah yang baik",
+                    severity="None",
+                    bbox=None,
+                )], None
+
+            # ── Kumpulkan semua deteksi per box ──
+            raw_detections = {}  # { disease_name: { best_conf, category, bboxes[] } }
+            for box in boxes:
+                cls_id = int(box.cls[0].item())
+                conf = float(box.conf[0].item())
+                xyxy = box.xyxy[0].tolist()  # [x1, y1, x2, y2]
+
+                # Langsung pakai model.names agar SELALU cocok dengan bounding box label
+                disease_name = model.names.get(cls_id, f"Unknown-{cls_id}")
+
+                if disease_name not in raw_detections:
+                    raw_detections[disease_name] = {
+                        "best_conf": conf,
+                        "bboxes": [[round(c, 2) for c in xyxy]],
+                        "count": 1,
+                    }
+                else:
+                    entry = raw_detections[disease_name]
+                    entry["bboxes"].append([round(c, 2) for c in xyxy])
+                    entry["count"] += 1
+                    if conf > entry["best_conf"]:
+                        entry["best_conf"] = conf
+
+            # ── Group: 1 penyakit = 1 DiseaseDetectionItem (confidence tertinggi) ──
             diseases = []
-            for item in selected:
-                confidence = min(item['confidence'] + random.uniform(-0.05, 0.05), 1.0)
-                confidence = max(confidence, 0.0)
+            for disease_name, info in raw_detections.items():
+                conf = info["best_conf"]
+                category = CLASS_CATEGORIES.get(disease_name, "Disease")
+                severity = get_severity(conf)
 
-                recommendations = DetectionService.get_recommendations(item['name'])
-                rec_text = " | ".join(recommendations)
-
-                severity = "High" if confidence >= 0.85 else "Medium" if confidence >= 0.7 else "Low"
-                if item['name'] == "Healthy":
-                    severity = "None"
+                # Normalisasi nama penyakit agar cocok dengan CLASS_RECOMMENDATIONS
+                normalized_name = disease_name.replace("_", " ")
+                recs = CLASS_RECOMMENDATIONS.get(normalized_name, ["Monitor tanaman secara rutin"])
+                rec_text = " | ".join(recs)
 
                 diseases.append(DiseaseDetectionItem(
-                    disease_name=item['name'],
-                    category=item['type'].capitalize(),
-                    confidence=round(confidence, 4),
+                    disease_name=disease_name,
+                    category=category,
+                    confidence=round(conf, 4),
                     recommendations=rec_text,
-                    severity=severity
+                    severity=severity,
+                    bbox=info["bboxes"][0],  # bbox confidence tertinggi (pertama disimpan)
                 ))
 
-            return diseases
+            # ── Generate annotated image (gambar + bounding box) ──
+            annotated_rel_path = DetectionService._save_annotated_image(
+                absolute_image_path, result
+            )
+
+            return diseases, annotated_rel_path
         except Exception as e:
-            print(f"Error during detection: {e}")
-            return []
+            print(f"Error during YOLO detection: {e}")
+            import traceback
+            traceback.print_exc()
+            # Re-raise agar endpoint bisa handle error dengan proper HTTP response
+            raise Exception(f"YOLO detection failed: {str(e)}")
+
+    @staticmethod
+    def _save_annotated_image(original_path: str, result) -> Optional[str]:
+        """
+        Gambar bounding box di atas image asli dan simpan sebagai file baru.
+        Return relative path untuk serving via API.
+        """
+        try:
+            annotated_frame = result.plot()  # numpy array BGR dengan boxes
+
+            # Buat filename annotated
+            dir_name = os.path.dirname(original_path)
+            base_name = os.path.splitext(os.path.basename(original_path))[0]
+            annotated_filename = f"{base_name}_annotated.jpg"
+            annotated_abs_path = os.path.join(dir_name, annotated_filename)
+
+            cv2.imwrite(annotated_abs_path, annotated_frame)
+
+            # Extract relative path dari UPLOADS_DIR
+            # original_path = .../app/uploads/user_1/scan_123.jpg
+            # relative = /uploads/user_X/scan_123_annotated.jpg
+            uploads_parent = os.path.dirname(UPLOADS_DIR)
+            rel = os.path.relpath(annotated_abs_path, uploads_parent).replace("\\", "/")
+            return f"/{rel}"
+        except Exception as e:
+            print(f"Warning: could not save annotated image: {e}")
+            return None
 
     @staticmethod
     def get_recommendations(disease_name: str) -> List[str]:
         """Get treatment recommendations based on disease"""
-        recommendations_map = {
-            "Leaf Blast": [
-                "Apply fungicide immediately",
-                "Increase field ventilation",
-                "Reduce nitrogen fertilizer",
-                "Remove infected leaves",
-                "Maintain proper water management"
-            ],
-            "Brown Spot": [
-                "Use resistant varieties",
-                "Apply copper fungicide",
-                "Improve drainage",
-                "Remove crop residue",
-                "Avoid continuous monoculture"
-            ],
-            "Bacterial Leaf Blight": [
-                "Cut infected leaves",
-                "Use antibiotic spray",
-                "Improve water management",
-                "Destroy infected plants",
-                "Practice crop rotation"
-            ],
-            "Rice Brown Planthopper": [
-                "Use yellow sticky traps",
-                "Apply insecticide spray",
-                "Introduce natural predators",
-                "Maintain field hygiene",
-                "Use resistant varieties"
-            ],
-            "Rice Leafhopper": [
-                "Apply neem oil spray",
-                "Remove weeds",
-                "Use light traps",
-                "Apply systemic insecticide",
-                "Maintain water level"
-            ],
-            "Rice Case Worm": [
-                "Drain field water temporarily",
-                "Apply biological insecticide",
-                "Maintain proper water depth",
-                "Introduce natural enemies",
-                "Practice clean cultivation"
-            ],
-            "Healthy": [
-                "Continue regular monitoring",
-                "Maintain proper nutrition",
-                "Ensure good water management",
-                "Prevent pest infestation",
-                "Keep field clean"
-            ]
-        }
-
-        return recommendations_map.get(disease_name, ["Monitor plant regularly"])
+        normalized_name = disease_name.replace("_", " ")
+        return CLASS_RECOMMENDATIONS.get(normalized_name, ["Monitor tanaman secara rutin"])
 
     @staticmethod
     def save_detection_to_db(
@@ -141,6 +224,7 @@ class DetectionService:
         image_filename: str,
         image_path: str,
         diseases: List[DiseaseDetectionItem],
+        annotated_image_path: str = None,
         image_name: str = None,
         original_filename: str = None,
         file_size: int = None,
@@ -159,6 +243,7 @@ class DetectionService:
             image_name=image_name.strip(),
             image_filename=image_filename,
             image_path=image_path,
+            annotated_image_path=annotated_image_path,
             disease_count=len(diseases),
         )
         db.add(detection)
@@ -173,6 +258,7 @@ class DetectionService:
                 confidence=disease.confidence,
                 recommendations=disease.recommendations,
                 severity=disease.severity,
+                bbox=disease.bbox,
             )
             db.add(detection_disease)
 

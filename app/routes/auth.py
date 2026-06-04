@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Header, status
-from app.models.schemas import UserRegister, UserLogin, TokenResponse, UserResponse, UpdateNameRequest
+from app.models.schemas import UserRegister, UserLogin, TokenResponse, UserResponse, UpdateNameRequest, ChangePasswordRequest
 from app.services.auth_service import AuthService
 from app.utils.security import create_access_token, decode_access_token
 from app.models.database_init import get_db
@@ -23,10 +23,10 @@ async def register(user_data: UserRegister, db: Session = Depends(get_db)):
     # Create access token
     access_token = create_access_token(
         data={"sub": user_data.email},
-        expires_delta=timedelta(minutes=30)
+        expires_delta=timedelta(minutes=180)
     )
 
-    user = UserResponse(email=user_data.email, name=user_data.name)
+    user = UserResponse(email=user_data.email, name=user_data.name, role='user')
 
     return TokenResponse(
         access_token=access_token,
@@ -48,7 +48,7 @@ async def login(credentials: UserLogin, db: Session = Depends(get_db)):
     # Create access token
     access_token = create_access_token(
         data={"sub": credentials.email},
-        expires_delta=timedelta(minutes=30)
+        expires_delta=timedelta(minutes=180)
     )
 
     return TokenResponse(
@@ -135,3 +135,55 @@ async def update_name(
         )
 
     return user
+
+@router.put("/change-password")
+async def change_password(
+    body: ChangePasswordRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Change user password"""
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header required"
+        )
+
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise ValueError()
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header"
+        )
+
+    payload = decode_access_token(token)
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found in token"
+        )
+
+    if not body.new_password or len(body.new_password) < 6:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password baru minimal 6 karakter"
+        )
+
+    success, message = AuthService.change_password(email, body.new_password, db)
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+
+    return {"message": message}

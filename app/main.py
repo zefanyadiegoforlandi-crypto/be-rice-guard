@@ -2,8 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 import os
-from app.config import CORS_ORIGINS, UPLOADS_DIR, USE_DATABASE
-from app.routes import auth, detection, health
+from app.config import CORS_ORIGINS, UPLOADS_DIR, USE_DATABASE, YOLO_MODEL_PATH
+from app.routes import auth, detection, health, admin
 
 # Create FastAPI app
 app = FastAPI(
@@ -25,6 +25,7 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(auth.router)
 app.include_router(detection.router)
+app.include_router(admin.router)
 
 # Mount uploads directory for serving images
 if os.path.exists(UPLOADS_DIR):
@@ -46,6 +47,16 @@ async def startup_event():
             print(f"⚠ Database initialization warning: {e}")
             print("  Using legacy JSON storage if database unavailable")
     
+    # Load YOLO model
+    try:
+        from app.services.detection_service import load_yolo_model
+        load_yolo_model()
+    except FileNotFoundError:
+        print(f"⚠ YOLO model not found at {YOLO_MODEL_PATH}")
+        print("  Detection will fail until best.pt is placed in backend/ml_models/")
+    except Exception as e:
+        print(f"⚠ Failed to load YOLO model: {e}")
+
     print("✓ Application started successfully")
 
 if __name__ == "__main__":

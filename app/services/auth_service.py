@@ -20,11 +20,12 @@ class AuthService:
         # Hash password
         hashed_password = hash_password(user_data.password)
 
-        # Create user di database
+        # Create user di database dengan default role 'user'
         new_user = User(
             email=user_data.email,
             name=user_data.name,
-            password_hash=hashed_password
+            password_hash=hashed_password,
+            role='user'  # Default role untuk user baru
         )
         db.add(new_user)
         db.commit()
@@ -47,6 +48,7 @@ class AuthService:
             id=user.id,
             email=user.email,
             name=user.name,
+            role=user.role,
             created_at=user.created_at
         )
 
@@ -59,6 +61,7 @@ class AuthService:
                 id=user.id,
                 email=user.email,
                 name=user.name,
+                role=user.role,
                 created_at=user.created_at
             )
         return None
@@ -80,3 +83,15 @@ class AuthService:
             name=user.name,
             created_at=user.created_at
         )
+
+    @staticmethod
+    def change_password(email: str, new_password: str, db: Session) -> Tuple[bool, str]:
+        """Change user password di database"""
+        user = db.query(User).filter(User.email == email).first()
+        if not user:
+            return False, "User not found"
+
+        user.password_hash = hash_password(new_password)
+        db.commit()
+
+        return True, "Password berhasil diubah"

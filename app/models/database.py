@@ -13,6 +13,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     name = Column(String(255), nullable=False)
     password_hash = Column(String(255), nullable=False)
+    role = Column(String(50), default='user', nullable=False)  # 'user' atau 'admin'
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -27,10 +28,11 @@ class Detection(Base):
     __tablename__ = "detections"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)  # nullable untuk guest scan
     image_name = Column(String(255), nullable=True)  # Label/nama dari petani
     image_filename = Column(String(255), nullable=False)
     image_path = Column(String(500), nullable=False)
+    annotated_image_path = Column(String(500), nullable=True)  # Path gambar dengan bounding box
     disease_count = Column(Integer, default=0)  # Jumlah penyakit terdeteksi
     analysis_data = Column(JSON, nullable=True)  # Extra data as JSON
     created_at = Column(DateTime, default=datetime.utcnow, index=True)
@@ -57,10 +59,11 @@ class DetectionDisease(Base):
     id = Column(Integer, primary_key=True, index=True)
     detection_id = Column(Integer, ForeignKey("detections.id", ondelete="CASCADE"), nullable=False)
     disease_name = Column(String(255), nullable=False)
-    category = Column(String(255), nullable=True)  # e.g., "Fungal", "Bacterial", "Pest"
+    category = Column(String(255), nullable=True)  # e.g., "Disease"
     confidence = Column(Float, nullable=False)  # 0.0 - 1.0
     recommendations = Column(Text, nullable=True)  # Treatment recommendations
     severity = Column(String(50), nullable=True)  # e.g., "Low", "Medium", "High"
+    bbox = Column(JSON, nullable=True)  # Bounding box [x1, y1, x2, y2]
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # Relationship

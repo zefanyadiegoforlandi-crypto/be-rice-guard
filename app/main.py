@@ -21,6 +21,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# === TARUH DI SINI (Tepat di bawah middleware) ===
+print("========================================")
+print(f"DOMAIN YANG DIIZINKAN CORS SAAT INI: {CORS_ORIGINS}")
+print("========================================")
+# =================================================
+
 # Include routers
 app.include_router(health.router)
 app.include_router(auth.router)

@@ -58,33 +58,33 @@ YOLO_CONFIDENCE_THRESHOLD = float(os.getenv("YOLO_CONFIDENCE_THRESHOLD", "0.25")
 
 # Category per class (semua penyakit daun padi)
 CLASS_CATEGORIES = {
-    "Bacterial Leaf Blight": "Disease",
+    "Bacterial Blight": "Disease",
     "Rice Blast": "Disease",
     "Brown Spot": "Disease",
 }
 
 # Recommendations per class
 CLASS_RECOMMENDATIONS = {
-    "Bacterial Leaf Blight": [
-        "Gunakan varietas tahan penyakit (contoh: IR64, Ciherang)",
-        "Potong dan buang daun yang terinfeksi",
-        "Kurangi pemupukan nitrogen berlebihan",
-        "Perbaiki drainase sawah untuk mengurangi kelembapan",
-        "Aplikasikan bakterisida berbahan dasar tembaga",
+    "Bacterial Blight": [
+        "Menanam varietas yang tahan terhadap penyakit, terutama varietas Code dan Angke pada wilayah endemis.",
+        "PMenghindari pemotongan bagian ujung bibit sebelum dilakukan penanaman.",
+        "Mengatur jarak tanam agar tidak terlalu rapat, salah satunya dengan menerapkan sistem tanam jajar legowo.",
+        "Menerapkan pengairan berselang (intermittent irrigation) serta menghindari kondisi lahan yang tergenang secara terus-menerus.",
+        "Melakukan pemupukan secara berimbang dan menghindari penggunaan pupuk nitrogen (N) dalam jumlah berlebihan.",
+        "Melakukan penyemprotan bakterisida apabila intensitas serangan penyakit telah melebihi 20%.",
     ],
     "Rice Blast": [
-        "Gunakan fungisida (Tricyclazole, Isoprothiolane)",
-        "Tanam varietas tahan blast",
-        "Kurangi pemupukan nitrogen berlebihan",
-        "Jaga jarak tanam yang optimal untuk sirkulasi udara",
-        "Lakukan rotasi tanaman untuk memutus siklus penyakit",
+        "Menanam varietas yang memiliki ketahanan terhadap penyakit blast secara bergantian untuk mengantisipasi perubahan ras cendawan yang berlangsung relatif cepat. Beberapa varietas yang diketahui masih cukup tahan antara lain Limboto, Situ Patenggang, dan Batutegi.",
+        "Pupuk nitrogen (N) sebaiknya diberikan sesuai kebutuhan tanaman. Aplikasi urea pada kisaran 100–150 kg/ha dilaporkan lebih efektif dalam menekan keparahan penyakit blast, sedangkan peningkatan dosis di atas kisaran tersebut tidak menunjukkan kecenderungan yang sama dalam pengurangan serangan penyakit.",
+        "Mengatur waktu tanam dengan tepat sehingga fase pembungaan tidak terjadi pada kondisi yang memiliki embun berlebihan.",
+        "Melakukan perlakuan benih (seed treatment) sejak awal karena penyakit blast dapat ditularkan melalui benih. Perlakuan ini dapat dilakukan menggunakan fungisida sistemik agar pengendalian lebih efektif.",
+        "Mengaplikasikan fungisida berbahan aktif tiofanat, fosdifen, atau kasugamisin apabila diperlukan.",
     ],
     "Brown Spot": [
-        "Aplikasikan fungisida (Mancozeb, Propiconazole)",
-        "Gunakan varietas tahan penyakit",
-        "Tingkatkan pemupukan kalium dan fosfor",
-        "Perbaiki drainase dan pengelolaan air sawah",
-        "Bersihkan sisa tanaman setelah panen",
+        "Menanam varietas yang tahan terhadap penyakit bercak coklat, seperti Ciherang dan Membrano.",
+        "Menggunakan jarak tanam yang tidak terlalu rapat, misalnya dengan menerapkan sistem tanam legowo.",
+        "Melakukan pemupukan secara berimbang sesuai kebutuhan tanaman.",
+        "Mengaplikasikan fungisida pada daun padi yang mengandung bahan aktif azoksistrobin, belerang, difenokonazol, tebukonazol, karbendazim, metil tiofanat, atau klorotalonil.",
     ],
 }
 

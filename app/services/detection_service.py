@@ -43,6 +43,18 @@ def get_yolo_model():
 class DetectionService:
     """Handle disease detection operations with YOLO model and MySQL database"""
 
+    DISEASE_NAME_ALIASES = {
+        "Leaf Blast": "Rice Blast",
+        "Blast": "Rice Blast",
+        "Bacterial Leaf Blight": "Bacterial Blight",
+    }
+
+    @staticmethod
+    def normalize_disease_name(disease_name: str) -> str:
+        """Normalize model labels so config lookups remain stable."""
+        normalized_name = (disease_name or "").replace("_", " ").strip()
+        return DetectionService.DISEASE_NAME_ALIASES.get(normalized_name, normalized_name)
+
     @staticmethod
     def save_uploaded_image(file_content: bytes, filename: str, user_id: Optional[int] = None) -> Tuple[str, str, str]:
         """
@@ -158,7 +170,7 @@ class DetectionService:
                 severity = get_severity(conf)
 
                 # Normalisasi nama penyakit agar cocok dengan CLASS_RECOMMENDATIONS
-                normalized_name = disease_name.replace("_", " ")
+                normalized_name = DetectionService.normalize_disease_name(disease_name)
                 recs = CLASS_RECOMMENDATIONS.get(normalized_name, ["Monitor tanaman secara rutin"])
                 rec_text = " | ".join(recs)
 
@@ -214,8 +226,16 @@ class DetectionService:
     @staticmethod
     def get_recommendations(disease_name: str) -> List[str]:
         """Get treatment recommendations based on disease"""
-        normalized_name = disease_name.replace("_", " ")
+        normalized_name = DetectionService.normalize_disease_name(disease_name)
         return CLASS_RECOMMENDATIONS.get(normalized_name, ["Monitor tanaman secara rutin"])
+
+    @staticmethod
+    def get_recommendations_text(disease_name: str, fallback: Optional[str] = None) -> str:
+        """Return latest config recommendations as display text."""
+        recommendations = DetectionService.get_recommendations(disease_name)
+        if recommendations == ["Monitor tanaman secara rutin"] and fallback:
+            return fallback
+        return " | ".join(recommendations)
 
     @staticmethod
     def save_detection_to_db(

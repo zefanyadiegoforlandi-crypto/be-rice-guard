@@ -193,7 +193,7 @@ async def scan_image(
                 "disease_name": d.disease_name,
                 "category": d.category,
                 "confidence": d.confidence,
-                "recommendations": d.recommendations,
+                "recommendations": DetectionService.get_recommendations_text(d.disease_name, d.recommendations),
                 "severity": d.severity,
                 "bbox": d.bbox,
             }
@@ -254,7 +254,7 @@ async def get_detection_history(
                     "disease_name": d.disease_name,
                     "category": d.category,
                     "confidence": d.confidence,
-                    "recommendations": d.recommendations,
+                    "recommendations": DetectionService.get_recommendations_text(d.disease_name, d.recommendations),
                     "severity": d.severity,
                     "bbox": d.bbox,
                 }

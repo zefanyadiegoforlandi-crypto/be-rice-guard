@@ -4,6 +4,7 @@ from app.models.schemas import UserResponse, PaginatedUserResponse, PaginatedDet
 from app.models.database import User, Detection, DetectionDisease
 from app.utils.security import decode_access_token, hash_password
 from app.models.database_init import get_db
+from app.services.detection_service import DetectionService
 from sqlalchemy.orm import Session, selectinload
 from sqlalchemy import func
 from pydantic import BaseModel
@@ -143,7 +144,7 @@ async def get_user_detail(
                     "disease_name": disease.disease_name,
                     "category": disease.category,
                     "confidence": disease.confidence,
-                    "recommendations": disease.recommendations,
+                    "recommendations": DetectionService.get_recommendations_text(disease.disease_name, disease.recommendations),
                     "severity": disease.severity
                 }
                 for disease in d.diseases
@@ -305,7 +306,7 @@ async def get_guest_scans(
                     "disease_name": disease.disease_name,
                     "category": disease.category,
                     "confidence": disease.confidence,
-                    "recommendations": disease.recommendations,
+                    "recommendations": DetectionService.get_recommendations_text(disease.disease_name, disease.recommendations),
                     "severity": disease.severity,
                     "bbox": disease.bbox
                 }
